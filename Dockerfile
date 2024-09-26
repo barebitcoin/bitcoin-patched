@@ -30,8 +30,8 @@ ARG TARGETPLATFORM
 ENV DRIVECHAIN_DATA=/home/drivechain/.drivechain
 ENV PATH=/opt/drivechain/bin:$PATH
 
-RUN groupadd --gid ${GID} bitcoin \
-  && useradd --create-home --no-log-init -u ${UID} -g ${GID} bitcoin \
+RUN groupadd --gid ${GID} drivechain \
+  && useradd --create-home --no-log-init -u ${UID} -g ${GID} drivechain \
   && apt-get update -y \
   && apt-get --no-install-recommends -y install jq curl gnupg gosu ca-certificates pkg-config libevent-dev libboost-dev libsqlite3-dev libzmq3-dev libminiupnpc-dev libnatpmp-dev qtbase5-dev qttools5-dev qttools5-dev-tools \
   && apt-get clean \
