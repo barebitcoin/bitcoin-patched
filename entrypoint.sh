@@ -30,7 +30,7 @@ if [ "$(echo "$1" | cut -c1)" = "-" ] || [ "$1" = "drivechaind" ]; then
   set -- "$@" -datadir="$DRIVECHAIN_DATA"
 fi
 
-if [ "$1" = "drivechaind" ] || [ "$1" = "drivechain-cli" ] || [ "$1" = "drivechain-tx" ]; then
+if [ "$1" = "drivechaind" ] || [ "$1" = "drivechain-cli" ]; then
   echo
   exec gosu drivechain "$@"
 fi
