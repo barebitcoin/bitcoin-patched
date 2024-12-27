@@ -546,6 +546,7 @@ def bitcoin_cli(basecmd, args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", default="bitcoin-cli", type=str, help="bitcoin-cli command")
+    parser.add_argument("--gbt-cli", default="", type=str, help="bitcoin-cli command for calling `getblocktemplate` (defaults to --cli)")
     parser.add_argument("--debug", action="store_true", help="Print debugging info")
     parser.add_argument("--quiet", action="store_true", help="Only print warnings/errors")
 
@@ -592,7 +593,13 @@ def main():
 
     args = parser.parse_args(sys.argv[1:])
 
-    args.bcli = lambda *a, input=b"", **kwargs: bitcoin_cli(args.cli.split(" "), list(a), input=input, **kwargs)
+    args.bcli = lambda *a, input=b"", **kwargs: bitcoin_cli(
+        # If the first argument is "getblocktemplate" and --gbt-cli is provided, use that command instead of --cli
+        args.gbt_cli.split(" ") if a and a[0] == "getblocktemplate" and args.gbt_cli else args.cli.split(" "), 
+        list(a), 
+        input=input, 
+        **kwargs
+    )
 
     if hasattr(args, "address") and hasattr(args, "descriptor"):
         args.derived_addresses = {}
