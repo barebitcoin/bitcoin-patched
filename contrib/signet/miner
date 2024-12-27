@@ -105,6 +105,9 @@ def generate_psbt(tmpl, reward_spk, *, blocktime=None, poolid=None, extra_vouts=
     cbtx = CTransaction()
     cbtx.vin = [CTxIn(COutPoint(0, 0xffffffff), scriptSig, 0xffffffff)]
     cbtx.vout = [CTxOut(tmpl["coinbasevalue"], reward_spk)]
+    # TODO: find extra outputs from the block template, under the "coinbasetxn" field. 
+    # Not sure precisely how that looks. Should be integrated into the BIP300/301 enforcer
+    # first?
     if extra_vouts is not None:
         cbtx.vout.extend(extra_vouts)
 
