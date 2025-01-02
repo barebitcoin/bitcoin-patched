@@ -105,6 +105,9 @@ def generate_psbt(tmpl, reward_spk, *, blocktime=None, poolid=None, extra_vouts=
     cbtx = CTransaction()
     cbtx.vin = [CTxIn(COutPoint(0, 0xffffffff), scriptSig, 0xffffffff)]
     cbtx.vout = [CTxOut(tmpl["coinbasevalue"], reward_spk)]
+    # TODO: find extra outputs from the block template, under the "coinbasetxn" field. 
+    # Not sure precisely how that looks. Should be integrated into the BIP300/301 enforcer
+    # first?
     if extra_vouts is not None:
         cbtx.vout.extend(extra_vouts)
 
@@ -337,7 +340,9 @@ class Generate:
         self.action_time = max(self.action_time, self.mine_time - 6900)
 
     def gbt(self, bcli, bestblockhash, now):
-        tmpl = json.loads(bcli("getblocktemplate", '{"rules":["signet","segwit"]}'))
+        # Adding "coinbasetxn" to the capabilities field to indicate that we want 
+        # Drivechain coinbase messages to be included in the block template.
+        tmpl = json.loads(bcli("getblocktemplate", '{"capabilities":["coinbasetxn"],"rules":["signet","segwit"]}'))
         if tmpl["previousblockhash"] != bestblockhash:
             logging.warning("GBT based off unexpected block (%s not %s), retrying", tmpl["previousblockhash"], bci["bestblockhash"])
             time.sleep(1)
@@ -544,6 +549,7 @@ def bitcoin_cli(basecmd, args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", default="bitcoin-cli", type=str, help="bitcoin-cli command")
+    parser.add_argument("--gbt-cli", default="", type=str, help="bitcoin-cli command for calling `getblocktemplate` (defaults to --cli)")
     parser.add_argument("--debug", action="store_true", help="Print debugging info")
     parser.add_argument("--quiet", action="store_true", help="Only print warnings/errors")
 
@@ -590,7 +596,13 @@ def main():
 
     args = parser.parse_args(sys.argv[1:])
 
-    args.bcli = lambda *a, input=b"", **kwargs: bitcoin_cli(args.cli.split(" "), list(a), input=input, **kwargs)
+    args.bcli = lambda *a, input=b"", **kwargs: bitcoin_cli(
+        # If the first argument is "getblocktemplate" and --gbt-cli is provided, use that command instead of --cli
+        args.gbt_cli.split(" ") if a and a[0] == "getblocktemplate" and args.gbt_cli else args.cli.split(" "), 
+        list(a), 
+        input=input, 
+        **kwargs
+    )
 
     if hasattr(args, "address") and hasattr(args, "descriptor"):
         args.derived_addresses = {}
