@@ -352,7 +352,7 @@ class Generate:
             gbt_request["capabilities"] = ["coinbasetxn"]
         tmpl = json.loads(getblocktemplate_command(json.dumps(gbt_request)))
         if tmpl["previousblockhash"] != bestblockhash:
-            logging.warning("GBT based off unexpected block (%s not %s), retrying", tmpl["previousblockhash"], bci["bestblockhash"])
+            logging.warning("GBT based off unexpected block (%s not %s), retrying", tmpl["previousblockhash"], bestblockhash)
             time.sleep(1)
             return None
 
