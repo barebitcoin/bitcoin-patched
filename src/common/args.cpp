@@ -721,8 +721,8 @@ bool HasTestOption(const ArgsManager& args, const std::string& test_option)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows: C:\Users\Username\AppData\Local\drivechain
-    // macOS: ~/Library/Application Support/drivechain
+    // Windows: C:\Users\Username\AppData\Local\Drivechain
+    // macOS: ~/Library/Application Support/Drivechain
     // Unix-like: ~/.drivechain
 #ifdef WIN32
     // Windows
