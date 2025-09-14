@@ -1,0 +1,257 @@
+name: Build and Release
+
+on: 
+  pull_request: 
+  push: 
+    branches:
+      - "master"
+  workflow_dispatch:
+
+jobs: 
+  build-linux: 
+    name: Build Linux binaries
+    runs-on: ubuntu-24.04
+    steps: 
+      - name: install Linux deps
+        run: |
+          sudo apt-get install build-essential cmake libboost-dev \
+              libevent-dev pkg-config python3 qtbase5-dev qttools5-dev \
+              qttools5-dev-tools qtwayland5
+
+      - uses: actions/checkout@v4
+    
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./depends
+          key: linux-${{ hashFiles('depends/packages/**') }}
+
+      - name: download dependencies
+        run: make -C ./depends download-linux
+
+      - name: build dependencies
+        run: make -C ./depends -j4
+
+      - name: Cache dependencies
+        uses: actions/cache/save@v4
+        with:
+          path: ./depends
+          key: linux-${{ hashFiles('depends/packages/**') }}
+
+      - name: build
+        run: |
+          cmake -B build --toolchain depends/x86_64-pc-linux-gnu/toolchain.cmake
+          cmake --build build -j 4
+
+      - name: 'Set environment variables: version number'
+        run: |
+          BITCOIN_PATCHED_VERSION=$(grep -oP "(?<=^CMAKE_PROJECT_VERSION:STATIC=).+(?=)" build/CMakeCache.txt)
+          echo "BITCOIN_PATCHED_VERSION=$BITCOIN_PATCHED_VERSION" >> "$GITHUB_ENV"
+
+      - name: Rename artifacts before upload
+        run: |
+          mkdir artifacts
+          mv build/src/bitcoind artifacts/
+          mv build/src/bitcoin-cli artifacts/
+          mv build/src/bitcoin-util artifacts/
+          mkdir artifacts/qt
+          mv build/src/qt/bitcoin-qt artifacts/qt
+
+      - uses: actions/upload-artifact@v4
+        with: 
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-unknown-linux-gnu
+          if-no-files-found: error
+          path: |
+            artifacts/bitcoind
+            artifacts/bitcoin-cli
+            artifacts/bitcoin-util
+            artifacts/qt/bitcoin-qt
+
+  # cribbed from upstream bitcoin core 
+  # https://github.com/bitcoin/bitcoin/blob/master/.github/workflows/ci.yml
+  build-windows:
+    name: 'Win64 native, VS 2022'
+    # Use latest image, but hardcode version to avoid silent upgrades (and breaks).
+    # See: https://github.com/actions/runner-images#available-images.
+    runs-on: windows-2022
+    timeout-minutes: 360 # windows takes a looooong as time to build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Developer Command Prompt for Microsoft Visual C++
+        # Using microsoft/setup-msbuild is not enough.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Get tool information
+        run: |
+          cmake -version | Tee-Object -FilePath "cmake_version"
+          Write-Output "---"
+          msbuild -version | Tee-Object -FilePath "msbuild_version"
+          $env:VCToolsVersion | Tee-Object -FilePath "toolset_version"
+          py -3 --version
+          Write-Host "PowerShell version $($PSVersionTable.PSVersion.ToString())"
+
+      - name: Using vcpkg with MSBuild
+        run: |
+          Set-Location "$env:VCPKG_INSTALLATION_ROOT"
+          Add-Content -Path "triplets\x64-windows.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
+          Add-Content -Path "triplets\x64-windows-static.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
+
+      - name: vcpkg tools cache
+        uses: actions/cache@v4
+        with:
+          path: C:/vcpkg/downloads/tools
+          key: ${{ github.job }}-vcpkg-tools
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache/restore@v4
+        id: vcpkg-binary-cache
+        with:
+          path: ~/AppData/Local/vcpkg/archives
+          key: ${{ github.job }}-vcpkg-binary-${{ hashFiles('cmake_version', 'msbuild_version', 'toolset_version', 'vcpkg.json') }}
+
+      - name: Generate build system
+        run: |
+          cmake -B build --preset vs2022-static -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -DBUILD_GUI=ON -DWITH_BDB=OFF -DWITH_ZMQ=ON -DBUILD_BENCH=OFF -DBUILD_FUZZ_BINARY=OFF -DBUILD_TESTS=OFF -DBUILD_UTIL=ON
+
+      - name: Save vcpkg binary cache
+        uses: actions/cache/save@v4
+        if: github.event_name != 'pull_request' && steps.vcpkg-binary-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/AppData/Local/vcpkg/archives
+          key: ${{ github.job }}-vcpkg-binary-${{ hashFiles('cmake_version', 'msbuild_version', 'toolset_version', 'vcpkg.json') }}
+
+      - name: Build
+        working-directory: build
+        run: |
+          cmake --build . -j $env:NUMBER_OF_PROCESSORS --config Release
+
+      - name: 'Set environment variables: version number'
+        shell: bash
+        # This command is a bit different than macOS and Linux, because the Windows version of 
+        # `grep` doesn't have the `-P` option.
+        run: |
+          BITCOIN_PATCHED_VERSION=$(grep CMAKE_PROJECT_VERSION:STATIC build/CMakeCache.txt | cut -d = -f2)
+          echo "BITCOIN_PATCHED_VERSION=$BITCOIN_PATCHED_VERSION" >> "$GITHUB_ENV"
+
+      - name: Rename artifacts before upload
+        run: |
+          mkdir artifacts
+          mv build/src/Release/bitcoind.exe artifacts/
+          mv build/src/Release/bitcoin-cli.exe artifacts/
+          mv build/src/Release/bitcoin-util.exe artifacts/
+          mkdir artifacts/qt
+          mv build/src/qt/Release/bitcoin-qt.exe artifacts/qt/
+
+      - uses: actions/upload-artifact@v4
+        with: 
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-w64-msvc
+          if-no-files-found: error
+          path: |
+            artifacts/bitcoind.exe
+            artifacts/bitcoin-cli.exe
+            artifacts/bitcoin-util.exe
+            artifacts/qt/bitcoin-qt.exe
+
+  build-macos: 
+    name: Build macOS binaries
+    runs-on: macos-13
+    steps: 
+      - uses: actions/checkout@v3
+    
+      - name: install deps
+        run: |
+          # GNU grep is required, as BSD grep does not support perl regexes
+          brew install boost cmake grep libevent pkg-config qrencode qt@5
+
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./depends
+          key: macos-${{ hashFiles('depends/packages/**') }}    
+      
+      - name: download dependencies
+        run: make -C ./depends download-osx
+
+      - name: build dependencies
+        run: make -C ./depends -j 4
+
+      - name: Cache dependencies
+        uses: actions/cache/save@v4
+        with:
+          path: ./depends
+          key: macos-${{ hashFiles('depends/packages/**') }}
+
+      - name: build
+        run: |
+          ls depends
+          cmake -B build -DBUILD_GUI=ON --toolchain depends/x86_64-apple-darwin*/toolchain.cmake
+          cmake --build build -j 4
+
+      - name: 'Set environment variables: version number'
+        run: |
+          BITCOIN_PATCHED_VERSION=$(ggrep -oP "(?<=^CMAKE_PROJECT_VERSION:STATIC=).+(?=)" build/CMakeCache.txt)
+          echo "BITCOIN_PATCHED_VERSION=$BITCOIN_PATCHED_VERSION" >> "$GITHUB_ENV"
+
+      - name: Rename artifacts before upload
+        run: |
+          mkdir artifacts
+          mv build/src/bitcoind artifacts/
+          mv build/src/bitcoin-cli artifacts/
+          mv build/src/bitcoin-util artifacts/
+          mkdir artifacts/qt
+          mv build/src/qt/bitcoin-qt artifacts/qt
+
+      - uses: actions/upload-artifact@v4
+        with: 
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-apple-darwin
+          if-no-files-found: error
+          path: |
+            artifacts/bitcoind
+            artifacts/bitcoin-cli
+            artifacts/bitcoin-util
+            artifacts/qt/bitcoin-qt
+
+  upload-artifacts-to-releases-drivechain-info:
+    name: Upload artifacts to releases.drivechain.info
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-macos, build-windows]
+    if: >
+      (github.event_name == 'push' &&
+      github.repository_owner == 'LayerTwo-Labs' &&
+      github.ref == 'refs/heads/master') ||
+      github.ref == 'refs/heads/some-whitelisted-branch'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+      - name: Zip artifacts
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+            VERSION="latest"
+          else
+            # We're on a PR, use the branch name
+            VERSION="${{ github.head_ref }}"
+          fi
+
+          ARTIFACT_PREFIX="L1-bitcoin-patched-$VERSION"
+          
+          mv bitcoin-patched-*-x86_64-apple-darwin "${ARTIFACT_PREFIX}-x86_64-apple-darwin"
+          zip -r "${ARTIFACT_PREFIX}-x86_64-apple-darwin.zip" "${ARTIFACT_PREFIX}-x86_64-apple-darwin"
+          mv bitcoin-patched-*-x86_64-w64-msvc "${ARTIFACT_PREFIX}-x86_64-w64-msvc"
+          zip -r "${ARTIFACT_PREFIX}-x86_64-w64-msvc.zip" "${ARTIFACT_PREFIX}-x86_64-w64-msvc"
+          mv bitcoin-patched-*-x86_64-unknown-linux-gnu "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
+          zip -r "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu.zip" "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
+
+      - name: Upload artifacts to releases.drivechain.info
+        uses: cross-the-world/ssh-scp-ssh-pipelines@latest
+        with:
+          host: 45.33.96.47
+          user: root
+          pass: ${{ secrets.RELEASES_SERVER_PW }}
+          port: 22
+          scp: |
+            'L1-bitcoin-patched-*.zip' => '/var/www/html/'
