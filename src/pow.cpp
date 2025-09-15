@@ -35,6 +35,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
                 return pindex->nBits;
             }
         }
+
         return pindexLast->nBits;
     }
 
@@ -79,6 +80,10 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
     bnNew /= params.nPowTargetTimespan;
 
     if (bnNew > bnPowLimit)
+        bnNew = bnPowLimit;
+
+    // Drivechain fork activation difficulty reset
+    if (pindexLast->nHeight + 1 == params.DrivechainHeight)
         bnNew = bnPowLimit;
 
     return bnNew.GetCompact();
