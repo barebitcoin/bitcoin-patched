@@ -4,7 +4,7 @@ on:
   pull_request: 
   push: 
     branches:
-      - "master"
+      - "guillotine-29"
   workflow_dispatch:
 
 jobs: 
@@ -51,11 +51,11 @@ jobs:
       - name: Rename artifacts before upload
         run: |
           mkdir artifacts
-          mv build/src/bitcoind artifacts/
-          mv build/src/bitcoin-cli artifacts/
-          mv build/src/bitcoin-util artifacts/
+          mv build/bin/bitcoind artifacts/
+          mv build/bin/bitcoin-cli artifacts/
+          mv build/bin/bitcoin-util artifacts/
           mkdir artifacts/qt
-          mv build/src/qt/bitcoin-qt artifacts/qt
+          mv build/bin/bitcoin-qt artifacts/qt
 
       - uses: actions/upload-artifact@v4
         with: 
@@ -141,11 +141,11 @@ jobs:
       - name: Rename artifacts before upload
         run: |
           mkdir artifacts
-          mv build/src/Release/bitcoind.exe artifacts/
-          mv build/src/Release/bitcoin-cli.exe artifacts/
-          mv build/src/Release/bitcoin-util.exe artifacts/
+          mv build/bin/Release/bitcoind.exe artifacts/
+          mv build/bin/Release/bitcoin-cli.exe artifacts/
+          mv build/bin/Release/bitcoin-util.exe artifacts/
           mkdir artifacts/qt
-          mv build/src/qt/Release/bitcoin-qt.exe artifacts/qt/
+          mv build/bin/Release/bitcoin-qt.exe artifacts/qt/
 
       - uses: actions/upload-artifact@v4
         with: 
@@ -200,11 +200,11 @@ jobs:
       - name: Rename artifacts before upload
         run: |
           mkdir artifacts
-          mv build/src/bitcoind artifacts/
-          mv build/src/bitcoin-cli artifacts/
-          mv build/src/bitcoin-util artifacts/
+          mv build/bin/bitcoind artifacts/
+          mv build/bin/bitcoin-cli artifacts/
+          mv build/bin/bitcoin-util artifacts/
           mkdir artifacts/qt
-          mv build/src/qt/bitcoin-qt artifacts/qt
+          mv build/bin/bitcoin-qt artifacts/qt
 
       - uses: actions/upload-artifact@v4
         with: 
@@ -223,8 +223,7 @@ jobs:
     if: >
       (github.event_name == 'push' &&
       github.repository_owner == 'LayerTwo-Labs' &&
-      github.ref == 'refs/heads/master') ||
-      github.ref == 'refs/heads/some-whitelisted-branch'
+      github.ref == 'refs/heads/guillotine-29')
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
