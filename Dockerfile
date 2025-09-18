@@ -42,8 +42,8 @@ RUN groupadd --gid ${GID} drivechain \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=builder /src/build/src/bitcoind /opt/drivechain/bin/drivechaind
-COPY --from=builder /src/build/src/bitcoin-cli /opt/drivechain/bin/drivechain-cli
+COPY --from=builder /src/build/bin/bitcoind /opt/drivechain/bin/drivechaind
+COPY --from=builder /src/build/bin/bitcoin-cli /opt/drivechain/bin/drivechain-cli
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
@@ -62,6 +62,6 @@ HEALTHCHECK --interval=300s --start-period=60s --start-interval=10s --timeout=20
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-RUN drivechaind -version | grep "Bitcoin Core version"
+RUN drivechaind -version | grep "Bitcoin Core daemon version"
 
 CMD ["drivechaind"]
