@@ -229,7 +229,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Zip artifacts
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/guillotine-29" ]; then
             VERSION="latest"
           else
             # We're on a PR, use the branch name
