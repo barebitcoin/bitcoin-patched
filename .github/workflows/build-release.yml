@@ -246,7 +246,10 @@ jobs:
           zip -r "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu.zip" "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
 
       - name: Upload artifacts to releases.drivechain.info
-        uses: cross-the-world/ssh-scp-ssh-pipelines@latest
+        # cross-the-world/ssh-scp-ssh-pipelines is broken and unmaintained 
+        # use a fork by a random chinese company (?). pin a specific version 
+        # to limit the amount of shenanigans they can pull
+        uses: yitianyigexiangfa/ssh-scp-ssh-pipelines@v1.1.5
         with:
           host: 45.33.96.47
           user: root
