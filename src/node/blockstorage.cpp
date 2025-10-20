@@ -1069,12 +1069,23 @@ bool BlockManager::ReadRawBlock(std::vector<uint8_t>& block, const FlatFilePos& 
 
         filein >> blk_start >> blk_size;
 
-        if (blk_start != GetParams().MessageStart() && blk_start != MAINNET_MAGIC) {
-            LogError("%s: Block magic mismatch for %s: %s versus expected %s or %s\n", __func__, pos.ToString(),
-                         HexStr(blk_start),
-                         HexStr(GetParams().MessageStart()),
-                         HexStr(MAINNET_MAGIC));
-            return false;
+        // For drivechain, also accept mainnet magic bytes
+        if (!m_opts.drivechain) {
+            if (blk_start != GetParams().MessageStart() && blk_start != MAINNET_MAGIC) {
+                LogError("%s: Block magic mismatch for %s: %s versus expected %s or %s\n", __func__, pos.ToString(),
+                            HexStr(blk_start),
+                            HexStr(GetParams().MessageStart()),
+                            HexStr(MAINNET_MAGIC));
+                return false;
+            }
+        } else {
+            if (blk_start != GetParams().MessageStart()) {
+                LogError("%s: Block magic mismatch for %s: %s versus expected %s or %s\n", __func__, pos.ToString(),
+                            HexStr(blk_start),
+                            HexStr(GetParams().MessageStart()),
+                            HexStr(MAINNET_MAGIC));
+                return false;
+            }
         }
 
         if (blk_size > MAX_SIZE) {
