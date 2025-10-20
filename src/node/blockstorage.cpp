@@ -1046,6 +1046,9 @@ bool BlockManager::ReadBlock(CBlock& block, const CBlockIndex& index) const
 
 bool BlockManager::ReadRawBlock(std::vector<uint8_t>& block, const FlatFilePos& pos) const
 {
+    // Bitcoin Core mainnet magic bytes
+    const MessageStartChars MAINNET_MAGIC = {0xf9, 0xbe, 0xb4, 0xd9};
+
     FlatFilePos hpos = pos;
     // If nPos is less than 8 the pos is null and we don't have the block data
     // Return early to prevent undefined behavior of unsigned int underflow
@@ -1066,7 +1069,7 @@ bool BlockManager::ReadRawBlock(std::vector<uint8_t>& block, const FlatFilePos& 
 
         filein >> blk_start >> blk_size;
 
-        if (blk_start != GetParams().MessageStart()) {
+        if (blk_start != GetParams().MessageStart() || blk_start != MAINNET_MAGIC) {
             LogError("%s: Block magic mismatch for %s: %s versus expected %s\n", __func__, pos.ToString(),
                          HexStr(blk_start),
                          HexStr(GetParams().MessageStart()));
