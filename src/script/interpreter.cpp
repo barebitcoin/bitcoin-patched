@@ -1215,15 +1215,17 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 	
                 case OP_DRIVECHAIN:
                 {
-                    if (script.size() != 4)
-                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
-
-                    if (script[0] != OP_DRIVECHAIN)
-                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
-
-                    stack.push_back(std::vector<unsigned char> {0xDC});
-
-                    pc += 4;
+                    // Before Drivechain activation, OP_DRIVECHAIN (0xb4) is treated as OP_NOP5 (no-op)
+                    // Only execute Drivechain logic if the script matches the exact Drivechain format
+                    // (4 bytes starting with OP_DRIVECHAIN). Otherwise, treat as NOP.
+                    if (script.size() == 4 && script[0] == OP_DRIVECHAIN) {
+                        // This is a valid Drivechain script - execute it
+                        stack.push_back(std::vector<unsigned char> {0xDC});
+                        pc += 4;
+                    } else {
+                        // Not a Drivechain script - treat as OP_NOP5 (no-op, do nothing)
+                        // Just continue to next opcode
+                    }
                 }
                 break;
 
