@@ -5,6 +5,7 @@
 #include <bip324.h>
 #include <chainparams.h>
 #include <key.h>
+#include <kernel/chainparams.h>
 #include <pubkey.h>
 #include <span.h>
 #include <test/util/random.h>
@@ -20,6 +21,39 @@
 #include <boost/test/unit_test.hpp>
 
 namespace {
+
+// Test-only chain params class with standard Bitcoin mainnet message start bytes
+// for BIP324 test vectors (which are designed for standard Bitcoin mainnet)
+class TestMainnetChainParams : public CChainParams {
+public:
+    TestMainnetChainParams() {
+        // Get mainnet params and copy accessible members via public getters
+        const auto mainnet_ptr = CChainParams::Main();
+        
+        // Copy all members that have public getters
+        consensus = mainnet_ptr->GetConsensus();
+        pchMessageStart = mainnet_ptr->MessageStart();
+        nDefaultPort = mainnet_ptr->GetDefaultPort();
+        nPruneAfterHeight = mainnet_ptr->PruneAfterHeight();
+        m_assumed_blockchain_size = mainnet_ptr->AssumedBlockchainSize();
+        m_assumed_chain_state_size = mainnet_ptr->AssumedChainStateSize();
+        genesis = mainnet_ptr->GenesisBlock();
+        fDefaultConsistencyChecks = mainnet_ptr->DefaultConsistencyChecks();
+        m_is_mockable_chain = mainnet_ptr->IsMockableChain();
+        m_chain_type = ChainType::MAIN;
+        
+        // Note: Protected members without public getters (vSeeds, base58Prefixes, etc.)
+        // are left with default values, which is fine for BIP324 tests that only need
+        // the message start bytes for HKDF salt calculation.
+        
+        // Override message start to use standard Bitcoin mainnet bytes
+        // (test vectors expect {0xf9, 0xbe, 0xb4, 0xd9}, not fork-specific bytes)
+        pchMessageStart[0] = 0xf9;
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
+        pchMessageStart[3] = 0xd9;
+    }
+};
 
 struct BIP324Test : BasicTestingSetup {
 void TestBIP324PacketVector(
@@ -166,7 +200,15 @@ BOOST_FIXTURE_TEST_SUITE(bip324_tests, BIP324Test)
 BOOST_AUTO_TEST_CASE(packet_test_vectors) {
     // BIP324 key derivation uses network magic in the HKDF process. We use mainnet params here
     // as that is what the test vectors are written for.
-    SelectParams(ChainType::MAIN);
+    // However, the test vectors are designed for standard Bitcoin mainnet message start bytes,
+    // not the fork-specific bytes. So we temporarily override with standard Bitcoin mainnet params.
+    SelectParams(ChainType::MAIN); // Ensure mainnet is selected first
+    SetTestChainParams(std::make_unique<TestMainnetChainParams>());
+    
+    // Restore original params at the end
+    struct RestoreParams {
+        ~RestoreParams() { SelectParams(ChainType::MAIN); }
+    } restore;
 
     // The test vectors are converted using the following Python code in the BIP bip-0324/ directory:
     //

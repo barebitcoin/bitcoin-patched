@@ -28,4 +28,11 @@ const CChainParams &Params();
  */
 void SelectParams(const ChainType chain);
 
+/**
+ * Test-only function to temporarily set custom chain params.
+ * This allows tests to override chain parameters (e.g., message start bytes)
+ * without modifying the production code.
+ */
+void SetTestChainParams(std::unique_ptr<const CChainParams> params);
+
 #endif // BITCOIN_CHAINPARAMS_H
