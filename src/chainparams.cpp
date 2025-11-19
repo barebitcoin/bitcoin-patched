@@ -116,6 +116,11 @@ const CChainParams &Params() {
     return *globalChainParams;
 }
 
+// Test-only function to temporarily set custom chain params
+void SetTestChainParams(std::unique_ptr<const CChainParams> params) {
+    globalChainParams = std::move(params);
+}
+
 std::unique_ptr<const CChainParams> CreateChainParams(const ArgsManager& args, const ChainType chain)
 {
     switch (chain) {
