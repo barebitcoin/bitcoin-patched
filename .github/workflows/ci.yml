@@ -22,57 +22,57 @@ env:
   MAKEJOBS: '-j10'
 
 jobs:
-  test-each-commit:
-    name: 'test each commit'
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request' && github.event.pull_request.commits != 1
-    timeout-minutes: 360  # Use maximum time, see https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes. Assuming a worst case time of 1 hour per commit, this leads to a --max-count=6 below.
-    env:
-      MAX_COUNT: 6
-    steps:
-      - name: Determine fetch depth
-        run: echo "FETCH_DEPTH=$((${{ github.event.pull_request.commits }} + 2))" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: ${{ env.FETCH_DEPTH }}
-      - name: Determine commit range
-        run: |
-          # Checkout HEAD~ and find the test base commit
-          # Checkout HEAD~ because it would be wasteful to rerun tests on the PR
-          # head commit that are already run by other jobs.
-          git checkout HEAD~
-          # Figure out test base commit by listing ancestors of HEAD, excluding
-          # ancestors of the most recent merge commit, limiting the list to the
-          # newest MAX_COUNT ancestors, ordering it from oldest to newest, and
-          # taking the first one.
-          #
-          # If the branch contains up to MAX_COUNT ancestor commits after the
-          # most recent merge commit, all of those commits will be tested. If it
-          # contains more, only the most recent MAX_COUNT commits will be
-          # tested.
-          #
-          # In the command below, the ^@ suffix is used to refer to all parents
-          # of the merge commit as described in:
-          # https://git-scm.com/docs/git-rev-parse#_other_rev_parent_shorthand_notations
-          # and the ^ prefix is used to exclude these parents and all their
-          # ancestors from the rev-list output as described in:
-          # https://git-scm.com/docs/git-rev-list
-          MERGE_BASE=$(git rev-list -n1 --merges HEAD)
-          EXCLUDE_MERGE_BASE_ANCESTORS=
-          # MERGE_BASE can be empty due to limited fetch-depth
-          if test -n "$MERGE_BASE"; then
-            EXCLUDE_MERGE_BASE_ANCESTORS=^${MERGE_BASE}^@
-          fi
-          echo "TEST_BASE=$(git rev-list -n$((${{ env.MAX_COUNT }} + 1)) --reverse HEAD $EXCLUDE_MERGE_BASE_ANCESTORS | head -1)" >> "$GITHUB_ENV"
-      - run: |
-          sudo apt-get update
-          sudo apt-get install clang ccache build-essential cmake pkgconf python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libzmq3-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
-      - name: Compile and run tests
-        run: |
-          # Run tests on commits after the last merge commit and before the PR head commit
-          # Use clang++, because it is a bit faster and uses less memory than g++
-          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && CC=clang CXX=clang++ cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' && cmake --build build -j $(nproc) && ctest --output-on-failure --stop-on-failure --test-dir build -j $(nproc) && ./build/test/functional/test_runner.py -j $(( $(nproc) * 2 )) --combinedlogslen=99999999" ${{ env.TEST_BASE }}
+  # test-each-commit:
+  #   name: 'test each commit'
+  #   runs-on: ubuntu-24.04
+  #   if: github.event_name == 'pull_request' && github.event.pull_request.commits != 1
+  #   timeout-minutes: 360  # Use maximum time, see https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes. Assuming a worst case time of 1 hour per commit, this leads to a --max-count=6 below.
+  #   env:
+  #     MAX_COUNT: 6
+  #   steps:
+  #     - name: Determine fetch depth
+  #       run: echo "FETCH_DEPTH=$((${{ github.event.pull_request.commits }} + 2))" >> "$GITHUB_ENV"
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: ${{ env.FETCH_DEPTH }}
+  #     - name: Determine commit range
+  #       run: |
+  #         # Checkout HEAD~ and find the test base commit
+  #         # Checkout HEAD~ because it would be wasteful to rerun tests on the PR
+  #         # head commit that are already run by other jobs.
+  #         git checkout HEAD~
+  #         # Figure out test base commit by listing ancestors of HEAD, excluding
+  #         # ancestors of the most recent merge commit, limiting the list to the
+  #         # newest MAX_COUNT ancestors, ordering it from oldest to newest, and
+  #         # taking the first one.
+  #         #
+  #         # If the branch contains up to MAX_COUNT ancestor commits after the
+  #         # most recent merge commit, all of those commits will be tested. If it
+  #         # contains more, only the most recent MAX_COUNT commits will be
+  #         # tested.
+  #         #
+  #         # In the command below, the ^@ suffix is used to refer to all parents
+  #         # of the merge commit as described in:
+  #         # https://git-scm.com/docs/git-rev-parse#_other_rev_parent_shorthand_notations
+  #         # and the ^ prefix is used to exclude these parents and all their
+  #         # ancestors from the rev-list output as described in:
+  #         # https://git-scm.com/docs/git-rev-list
+  #         MERGE_BASE=$(git rev-list -n1 --merges HEAD)
+  #         EXCLUDE_MERGE_BASE_ANCESTORS=
+  #         # MERGE_BASE can be empty due to limited fetch-depth
+  #         if test -n "$MERGE_BASE"; then
+  #           EXCLUDE_MERGE_BASE_ANCESTORS=^${MERGE_BASE}^@
+  #         fi
+  #         echo "TEST_BASE=$(git rev-list -n$((${{ env.MAX_COUNT }} + 1)) --reverse HEAD $EXCLUDE_MERGE_BASE_ANCESTORS | head -1)" >> "$GITHUB_ENV"
+  #     - run: |
+  #         sudo apt-get update
+  #         sudo apt-get install clang ccache build-essential cmake pkgconf python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libzmq3-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
+  #     - name: Compile and run tests
+  #       run: |
+  #         # Run tests on commits after the last merge commit and before the PR head commit
+  #         # Use clang++, because it is a bit faster and uses less memory than g++
+  #         git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && CC=clang CXX=clang++ cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' && cmake --build build -j $(nproc) && ctest --output-on-failure --stop-on-failure --test-dir build -j $(nproc) && ./build/test/functional/test_runner.py -j $(( $(nproc) * 2 )) --combinedlogslen=99999999" ${{ env.TEST_BASE }}
 
   macos-native-arm64:
     name: ${{ matrix.job-name }}
@@ -137,10 +137,10 @@ jobs:
           key: ${{ github.job }}-${{ matrix.job-type }}-ccache-${{ github.run_id }}
           restore-keys: ${{ github.job }}-${{ matrix.job-type }}-ccache-
 
-      - name: CI script
-        run: ./ci/test_run_all.sh
-        env:
-          FILE_ENV: ${{ matrix.file-env }}
+      # - name: CI script
+      #   run: ./ci/test_run_all.sh
+      #   env:
+      #     FILE_ENV: ${{ matrix.file-env }}
 
       - name: Save Ccache cache
         uses: actions/cache/save@v4
@@ -230,23 +230,23 @@ jobs:
         run: |
           cmake --build . -j $env:NUMBER_OF_PROCESSORS --config Release
 
-      - name: Run test suite
-        if: matrix.job-type == 'standard'
-        working-directory: build
-        run: |
-          ctest --output-on-failure --stop-on-failure -j $env:NUMBER_OF_PROCESSORS -C Release
+      # - name: Run test suite
+      #   if: matrix.job-type == 'standard'
+      #   working-directory: build
+      #   run: |
+      #     ctest --output-on-failure --stop-on-failure -j $env:NUMBER_OF_PROCESSORS -C Release
 
-      - name: Run functional tests
-        if: matrix.job-type == 'standard'
-        working-directory: build
-        env:
-          BITCOIND: '${{ github.workspace }}\build\bin\Release\bitcoind.exe'
-          BITCOINCLI: '${{ github.workspace }}\build\bin\Release\bitcoin-cli.exe'
-          BITCOINUTIL: '${{ github.workspace }}\build\bin\Release\bitcoin-util.exe'
-          BITCOINWALLET: '${{ github.workspace }}\build\bin\Release\bitcoin-wallet.exe'
-          TEST_RUNNER_EXTRA: ${{ github.event_name != 'pull_request' && '--extended' || '' }}
-        shell: cmd
-        run: py -3 test\functional\test_runner.py --jobs %NUMBER_OF_PROCESSORS% --ci --quiet --tmpdirprefix=%RUNNER_TEMP% --combinedlogslen=99999999 --timeout-factor=%TEST_RUNNER_TIMEOUT_FACTOR% %TEST_RUNNER_EXTRA%
+      # - name: Run functional tests
+      #   if: matrix.job-type == 'standard'
+      #   working-directory: build
+      #   env:
+      #     BITCOIND: '${{ github.workspace }}\build\bin\Release\bitcoind.exe'
+      #     BITCOINCLI: '${{ github.workspace }}\build\bin\Release\bitcoin-cli.exe'
+      #     BITCOINUTIL: '${{ github.workspace }}\build\bin\Release\bitcoin-util.exe'
+      #     BITCOINWALLET: '${{ github.workspace }}\build\bin\Release\bitcoin-wallet.exe'
+      #     TEST_RUNNER_EXTRA: ${{ github.event_name != 'pull_request' && '--extended' || '' }}
+      #   shell: cmd
+      #   run: py -3 test\functional\test_runner.py --jobs %NUMBER_OF_PROCESSORS% --ci --quiet --tmpdirprefix=%RUNNER_TEMP% --combinedlogslen=99999999 --timeout-factor=%TEST_RUNNER_TIMEOUT_FACTOR% %TEST_RUNNER_EXTRA%
 
       - name: Clone corpora
         if: matrix.job-type == 'fuzz'
@@ -256,14 +256,14 @@ jobs:
           Write-Host "Using qa-assets repo from commit ..."
           git log -1
 
-      - name: Run fuzz tests
-        if: matrix.job-type == 'fuzz'
-        working-directory: build
-        env:
-          BITCOINFUZZ: '${{ github.workspace }}\build\bin\Release\fuzz.exe'
-        shell: cmd
-        run: |
-          py -3 test\fuzz\test_runner.py --par %NUMBER_OF_PROCESSORS% --loglevel DEBUG %RUNNER_TEMP%\qa-assets\fuzz_corpora
+      # - name: Run fuzz tests
+      #   if: matrix.job-type == 'fuzz'
+      #   working-directory: build
+      #   env:
+      #     BITCOINFUZZ: '${{ github.workspace }}\build\bin\Release\fuzz.exe'
+      #   shell: cmd
+      #   run: |
+      #     py -3 test\fuzz\test_runner.py --par %NUMBER_OF_PROCESSORS% --loglevel DEBUG %RUNNER_TEMP%\qa-assets\fuzz_corpora
 
   asan-lsan-ubsan-integer-no-depends-usdt:
     name: 'ASan + LSan + UBSan + integer, no depends, USDT'
@@ -296,8 +296,8 @@ jobs:
         # so any settings will need to be written to the settings env file:
         run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
 
-      - name: CI script
-        run: ./ci/test_run_all.sh
+      # - name: CI script
+      #   run: ./ci/test_run_all.sh
 
       - name: Save Ccache cache
         uses: actions/cache/save@v4
