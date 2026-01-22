@@ -1,11 +1,15 @@
 name: Build and Release
 
-on: 
-  pull_request: 
-  push: 
+on:
+  pull_request:
+  push:
     branches:
-      - "guillotine-29"
+      - "forknet"
   workflow_dispatch:
+
+env:
+  # Use PR source branch for PRs, pushed branch for pushes
+  BRANCH_SUFFIX: ${{ github.head_ref || github.ref_name }}
 
 jobs: 
   build-linux: 
@@ -59,7 +63,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with: 
-          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-unknown-linux-gnu
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-${{ env.BRANCH_SUFFIX }}-x86_64-unknown-linux-gnu
           if-no-files-found: error
           path: |
             artifacts/bitcoind
@@ -149,7 +153,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with: 
-          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-w64-msvc
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-${{ env.BRANCH_SUFFIX }}-x86_64-w64-msvc
           if-no-files-found: error
           path: |
             artifacts/bitcoind.exe
@@ -208,7 +212,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with: 
-          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-x86_64-apple-darwin
+          name: bitcoin-patched-${{ env.BITCOIN_PATCHED_VERSION }}-${{ env.BRANCH_SUFFIX }}-x86_64-apple-darwin
           if-no-files-found: error
           path: |
             artifacts/bitcoind
@@ -223,26 +227,20 @@ jobs:
     if: >
       (github.event_name == 'push' &&
       github.repository_owner == 'LayerTwo-Labs' &&
-      github.ref == 'refs/heads/guillotine-29')
+      github.ref == 'refs/heads/forknet')
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
       - name: Zip artifacts
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/guillotine-29" ]; then
-            VERSION="latest"
-          else
-            # We're on a PR, use the branch name
-            VERSION="${{ github.head_ref }}"
-          fi
+          BRANCH="${{ github.ref_name }}"
+          ARTIFACT_PREFIX="L1-bitcoin-patched-latest"
 
-          ARTIFACT_PREFIX="L1-bitcoin-patched-$VERSION"
-          
-          mv bitcoin-patched-*-x86_64-apple-darwin "${ARTIFACT_PREFIX}-x86_64-apple-darwin"
+          mv bitcoin-patched-*-${BRANCH}-x86_64-apple-darwin "${ARTIFACT_PREFIX}-x86_64-apple-darwin"
           zip -r "${ARTIFACT_PREFIX}-x86_64-apple-darwin.zip" "${ARTIFACT_PREFIX}-x86_64-apple-darwin"
-          mv bitcoin-patched-*-x86_64-w64-msvc "${ARTIFACT_PREFIX}-x86_64-w64-msvc"
+          mv bitcoin-patched-*-${BRANCH}-x86_64-w64-msvc "${ARTIFACT_PREFIX}-x86_64-w64-msvc"
           zip -r "${ARTIFACT_PREFIX}-x86_64-w64-msvc.zip" "${ARTIFACT_PREFIX}-x86_64-w64-msvc"
-          mv bitcoin-patched-*-x86_64-unknown-linux-gnu "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
+          mv bitcoin-patched-*-${BRANCH}-x86_64-unknown-linux-gnu "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
           zip -r "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu.zip" "${ARTIFACT_PREFIX}-x86_64-unknown-linux-gnu"
 
       - name: Upload artifacts to releases.drivechain.info
